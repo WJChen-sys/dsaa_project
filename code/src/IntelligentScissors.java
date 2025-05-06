@@ -225,19 +225,24 @@ public class IntelligentScissors extends JFrame {
             return;
         }
 
-        // 使用 Path2D 和 Area 合并所有闭合路径
-        Area totalArea = new Area();
+        // 合并所有路径为一个连续路径
+        List<Point> mergedPath = new ArrayList<>();
         for (List<Point> path : allPaths) {
-            if (path.size() < 3) continue; // 至少3个点才能形成闭合区域
-
-            Path2D.Double polygon = new Path2D.Double();
-            polygon.moveTo(path.get(0).x, path.get(0).y);
-            for (int i = 1; i < path.size(); i++) {
-                polygon.lineTo(path.get(i).x, path.get(i).y);
-            }
-            polygon.closePath(); // 关键：显式闭合路径
-            totalArea.add(new Area(polygon));
+            mergedPath.addAll(path);
         }
+        if (mergedPath.size() < 3) {
+            JOptionPane.showMessageDialog(this, "Path too short to form a region");
+            return;
+        }
+
+        // 创建闭合路径
+        Path2D.Double polygon = new Path2D.Double();
+        polygon.moveTo(mergedPath.get(0).x, mergedPath.get(0).y);
+        for (int i = 1; i < mergedPath.size(); i++) {
+            polygon.lineTo(mergedPath.get(i).x, mergedPath.get(i).y);
+        }
+        polygon.closePath();
+        Area totalArea = new Area(polygon);
 
         // 创建带透明通道的图像
         BufferedImage result = new BufferedImage(
@@ -249,13 +254,10 @@ public class IntelligentScissors extends JFrame {
         Graphics2D g2d = result.createGraphics();
         g2d.setComposite(AlphaComposite.Clear);
         g2d.fillRect(0, 0, result.getWidth(), result.getHeight());
-
-        // 关键步骤：设置填充规则为 Non-Zero
         g2d.setComposite(AlphaComposite.Src);
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setClip(totalArea);
 
-        // 绘制原始图像到裁剪区域
+        // 设置裁剪区域并绘制图像
+        g2d.setClip(totalArea);
         g2d.drawImage(originalImage, 0, 0, null);
         g2d.dispose();
 
