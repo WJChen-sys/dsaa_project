@@ -133,20 +133,19 @@ public class IntelligentScissors extends JFrame {
     }
 
     // 找到离指定点最近的梯度最大的点
+    // 找到离指定点最近的梯度最大的点
     private Point findNearestHighGradientPoint(int x, int y, double[][] costMatrix) {
-        int searchRadius = 10; // 搜索按钮
-        int width = costMatrix.length;
-        int height = costMatrix[0].length;
+        int searchRadius = 5; // 搜索按钮
+        int width = gradients.length;
+        int height = gradients[0].length;
         Point bestPoint = new Point(x, y);
-        double maxGradient = 0.0;
+        double maxGradient = gradients[x][y]; // 初始设为当前点的梯度
 
         for (int dx = -searchRadius; dx <= searchRadius; dx++) {
             for (int dy = -searchRadius; dy <= searchRadius; dy++) {
                 int nx = x + dx;
                 int ny = y + dy;
-                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                    // 假设梯度越大，cost 越小，这里可能需要根据你的 costMatrix 计算方式进行调整
-                    //double gradient = 1.0 / costMatrix[nx][ny] - 1.0; // 转换回梯度值
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) { // 确保在图片范围内
                     if (gradients[nx][ny] > maxGradient) {
                         maxGradient = gradients[nx][ny];
                         bestPoint = new Point(nx, ny);
@@ -312,38 +311,45 @@ public class IntelligentScissors extends JFrame {
 class ImageProcessor {
     // 计算图像梯度
     public static double[][] computeGradients(BufferedImage image) {
-        int width = image.getWidth(); // 获取图像宽度
-        int height = image.getHeight(); // 获取图像高度
-        double[][] gradients = new double[width][height]; // 创建梯度矩阵
+        int width = image.getWidth();
+        int height = image.getHeight();
+        double[][] gradients = new double[width][height];
 
         // 将图像转换为灰度图
         double[][] gray = new double[width][height];
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
-                Color color = new Color(image.getRGB(x, y)); // 获取像素颜色
-                // 计算灰度值
+                Color color = new Color(image.getRGB(x, y));
                 gray[x][y] = 0.2989 * color.getRed() + 0.5870 * color.getGreen() + 0.1140 * color.getBlue();
             }
         }
 
         // 使用Sobel算子计算梯度
-        int[][] sobelX = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}; // X方向Sobel算子
-        int[][] sobelY = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}; // Y方向Sobel算子
+        int[][] sobelX = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+        int[][] sobelY = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
         for (int x = 1; x < width - 1; x++) {
             for (int y = 1; y < height - 1; y++) {
                 double gx = 0, gy = 0;
-                // 应用Sobel算子计算梯度
                 for (int i = -1; i <= 1; i++) {
                     for (int j = -1; j <= 1; j++) {
                         gx += gray[x + i][y + j] * sobelX[i + 1][j + 1];
                         gy += gray[x + i][y + j] * sobelY[i + 1][j + 1];
                     }
                 }
-                // 计算梯度幅度
                 gradients[x][y] = Math.sqrt(gx * gx + gy * gy);
             }
         }
+
+        // 处理边缘像素
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                if (x == 0 || x == width - 1 || y == 0 || y == height - 1) {
+                    gradients[x][y] = 0; // 或者根据实际情况处理边缘像素
+                }
+            }
+        }
+
         return gradients;
     }
 }
