@@ -22,6 +22,8 @@ public class IntelligentScissors extends JFrame {
     private JPanel imagePanel; // 显示图像的面板
     private boolean pathCompleted = false; // 标志当前路径是否已完成
     private Color pathColor = Color.GREEN; // 路径的颜色，默认为绿色
+    private double[][] gradients; // 新增：存储图像梯度数据
+
 
     public IntelligentScissors() {
         setTitle("Intelligent Scissors"); // 设置窗口标题
@@ -93,7 +95,9 @@ public class IntelligentScissors extends JFrame {
 
                 // 如果是第一次点击或者路径已完成，则设置新的种子点
                 if (seedPoint == null || pathCompleted) {
-                    seedPoint = e.getPoint();
+                    Point clickedPoint = e.getPoint();
+                    Point snappedPoint = findNearestHighGradientPoint(clickedPoint.x, clickedPoint.y, costMatrix);
+                    seedPoint = snappedPoint;
                     parentMap = Dijkstra.calculatePaths(seedPoint.x, seedPoint.y, costMatrix);
                     currentPath.clear();
                     currentPath.add(new Point(seedPoint.x, seedPoint.y));
@@ -113,10 +117,10 @@ public class IntelligentScissors extends JFrame {
         imagePanel.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseMoved(MouseEvent e) {
-                // 如果有种子点、已计算路径且路径未完成，则更新当前路径
                 if (seedPoint != null && parentMap != null && !pathCompleted) {
                     Point currentMouse = e.getPoint(); // 获取当前鼠标位置
-                    currentPath = reconstructPath(currentMouse); // 根据鼠标位置重建路径
+                    Point edgePoint = findNearestHighGradientPoint(currentMouse.x, currentMouse.y, costMatrix); // 找到邻域内梯度最大的点
+                    currentPath = reconstructPath(edgePoint); // 根据梯度最大的点重建路径
                     repaint(); // 重新绘制面板
                 }
             }
@@ -126,6 +130,32 @@ public class IntelligentScissors extends JFrame {
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(toolBar, BorderLayout.NORTH);
         getContentPane().add(new JScrollPane(imagePanel), BorderLayout.CENTER);
+    }
+
+    // 找到离指定点最近的梯度最大的点
+    private Point findNearestHighGradientPoint(int x, int y, double[][] costMatrix) {
+        int searchRadius = 10; // 搜索按钮
+        int width = costMatrix.length;
+        int height = costMatrix[0].length;
+        Point bestPoint = new Point(x, y);
+        double maxGradient = 0.0;
+
+        for (int dx = -searchRadius; dx <= searchRadius; dx++) {
+            for (int dy = -searchRadius; dy <= searchRadius; dy++) {
+                int nx = x + dx;
+                int ny = y + dy;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    // 假设梯度越大，cost 越小，这里可能需要根据你的 costMatrix 计算方式进行调整
+                    //double gradient = 1.0 / costMatrix[nx][ny] - 1.0; // 转换回梯度值
+                    if (gradients[nx][ny] > maxGradient) {
+                        maxGradient = gradients[nx][ny];
+                        bestPoint = new Point(nx, ny);
+                    }
+                }
+            }
+        }
+
+        return bestPoint;
     }
 
     // 打开图像文件并进行初始化
@@ -146,7 +176,7 @@ public class IntelligentScissors extends JFrame {
                 displayImage.getGraphics().drawImage(originalImage, 0, 0, null); // 将图像复制到显示缓冲区
 
                 // 计算图像梯度并生成成本矩阵
-                double[][] gradients = ImageProcessor.computeGradients(originalImage);
+                gradients = ImageProcessor.computeGradients(originalImage);
                 costMatrix = computeCostMatrix(gradients);
 
                 // 设置面板尺寸
