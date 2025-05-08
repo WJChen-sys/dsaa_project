@@ -23,6 +23,12 @@ public class IntelligentScissors extends JFrame {
     private boolean pathCompleted = false; // 标志当前路径是否已完成
     private Color pathColor = Color.GREEN; // 路径的颜色，默认为绿色
     private double[][] gradients; // 新增：存储图像梯度数据
+    private Map<Point, Long> pointStability = new HashMap<>();
+    private static final long COOLING_THRESHOLD_MS = 1; // 2秒冷却阈值
+    private static final int MIN_COOLING_LENGTH = 7;      // 最小冷却段长度
+    private Map<Point, Integer> coalescenceCount = new HashMap<>(); // 路径聚合次数计数器
+    private static final int COOLING_COUNT_THRESHOLD = 4; // 冷却触发的最小聚合次数
+
 
 
     public IntelligentScissors() {
@@ -118,10 +124,22 @@ public class IntelligentScissors extends JFrame {
             @Override
             public void mouseMoved(MouseEvent e) {
                 if (seedPoint != null && parentMap != null && !pathCompleted) {
-                    Point currentMouse = e.getPoint(); // 获取当前鼠标位置
-                    Point edgePoint = findNearestHighGradientPoint(currentMouse.x, currentMouse.y, costMatrix); // 找到邻域内梯度最大的点
-                    currentPath = reconstructPath(edgePoint); // 根据梯度最大的点重建路径
-                    repaint(); // 重新绘制面板
+                    Point currentMouse = e.getPoint();
+                    Point edgePoint = findNearestHighGradientPoint(currentMouse.x, currentMouse.y, costMatrix);
+                    currentPath = reconstructPath(edgePoint);
+
+                    // 更新稳定性时间戳和聚合次数
+                    long timestamp = System.currentTimeMillis();
+                    for (Point p : currentPath) {
+                        // 更新时间戳
+                        pointStability.put(p, timestamp);
+
+                        // 更新聚合次数（每个点经过一次路径绘制+1）
+                        coalescenceCount.put(p, coalescenceCount.getOrDefault(p, 0) + 1);
+                    }
+
+                    checkAndApplyCooling();
+                    repaint();
                 }
             }
         });
@@ -135,7 +153,7 @@ public class IntelligentScissors extends JFrame {
     // 找到离指定点最近的梯度最大的点
     // 找到离指定点最近的梯度最大的点
     private Point findNearestHighGradientPoint(int x, int y, double[][] costMatrix) {
-        int searchRadius = 5; // 搜索按钮
+        int searchRadius = 10; // 搜索按钮
         int width = gradients.length;
         int height = gradients[0].length;
         Point bestPoint = new Point(x, y);
@@ -231,12 +249,17 @@ public class IntelligentScissors extends JFrame {
 
     // 清除所有路径
     private void clearAllPaths() {
-        allPaths.clear(); // 清除所有路径
-        seedPoint = null; // 重置种子点
-        parentMap = null; // 重置路径映射
-        currentPath.clear(); // 清除当前路径
-        pathCompleted = false; // 标志路径为未完成状态
-        repaint(); // 重新绘制面板
+        allPaths.clear();
+        seedPoint = null;
+        parentMap = null;
+        currentPath.clear();
+        pathCompleted = false;
+
+        // 新增：清空冷却相关数据
+        pointStability.clear();
+        coalescenceCount.clear();
+
+        repaint();
     }
 
     // 更改路径颜色
@@ -300,6 +323,43 @@ public class IntelligentScissors extends JFrame {
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage());
             }
+        }
+    }
+    private void checkAndApplyCooling() {
+        if (currentPath.isEmpty()) return;
+
+        long currentTime = System.currentTimeMillis();
+        int coolingIndex = -1;
+
+        // 从后往前寻找第一个同时满足时间和次数条件的点
+        for (int i = currentPath.size() - 1; i >= 0; i--) {
+            Point p = currentPath.get(i);
+            Long firstSeen = pointStability.get(p);
+            Integer count = coalescenceCount.getOrDefault(p, 0);
+
+            if (firstSeen != null &&
+                    (currentTime - firstSeen) >= COOLING_THRESHOLD_MS &&
+                    count >= COOLING_COUNT_THRESHOLD) {
+                coolingIndex = i;
+                break;
+            }
+        }
+
+        if (coolingIndex >= MIN_COOLING_LENGTH) {
+            // 提取已冷却的路径段
+            List<Point> cooledSegment = new ArrayList<>(currentPath.subList(0, coolingIndex + 1));
+            allPaths.add(cooledSegment);
+
+            // 更新种子点并重置路径
+            seedPoint = new Point(cooledSegment.get(cooledSegment.size() - 1));
+            parentMap = Dijkstra.calculatePaths(seedPoint.x, seedPoint.y, costMatrix);
+            currentPath = new ArrayList<>(currentPath.subList(coolingIndex, currentPath.size()));
+            currentPath.add(0, seedPoint);
+
+            // 清空稳定性记录
+            pointStability.clear();
+            coalescenceCount.clear(); // 清除次数统计
+            repaint();
         }
     }
 
