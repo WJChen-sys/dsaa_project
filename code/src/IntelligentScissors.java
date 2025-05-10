@@ -277,7 +277,7 @@ public class IntelligentScissors extends JFrame {
 
                 //计算梯度和成本矩阵（在缩放后的图片上进行计算）
                 gradients = ImageProcessor.computeGradients(scaledImage);
-                costMatrix = computeCostMatrix(gradients);
+                costMatrix = ImageProcessor.computeCostMatrix(gradients);
 
                 //面板尺寸
                 imagePanel.setPreferredSize(new Dimension(originalImage.getWidth(), originalImage.getHeight()));
@@ -315,19 +315,6 @@ public class IntelligentScissors extends JFrame {
         }
         Collections.reverse(path); //路径反转 起点-->终点
         return path;
-    }
-
-    //cost计算
-    private double[][] computeCostMatrix(double[][] gradients) {
-
-        double[][] cost = new double[gradients.length][gradients[0].length];
-        for (int x = 0; x < gradients.length; x++) {
-            for (int y = 0; y < gradients[0].length; y++) {
-                //每个像素的cost 梯度越大成本越低 (分母+1)防止除以0报错
-                cost[x][y] = 1.0 / (1.0 + gradients[x][y]);
-            }
-        }
-        return cost;
     }
 
     //清除所有路径
@@ -492,8 +479,20 @@ class ImageProcessor {
 //                }
 //            }
 //        }
-
         return gradient;
+    }
+
+    //cost计算
+    public static double[][] computeCostMatrix(double[][] gradients) {
+
+        double[][] cost = new double[gradients.length][gradients[0].length];
+        for (int x = 0; x < gradients.length; x++) {
+            for (int y = 0; y < gradients[0].length; y++) {
+                //每个像素的cost 梯度越大成本越低 (分母+1)防止除以0报错
+                cost[x][y] = 1.0 / (1.0 + gradients[x][y]);
+            }
+        }
+        return cost;
     }
 }
 
