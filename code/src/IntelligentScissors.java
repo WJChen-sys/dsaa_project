@@ -564,7 +564,7 @@ class Dijkstra {
         //比较方法
         @Override
         public int compareTo(Node other) {
-            return Double.compare(this.dist, other.dist); // 按距离排序
+            return Double.compare(this.dist, other.dist); //按距离排序 从小到大
         }
     }
 }
