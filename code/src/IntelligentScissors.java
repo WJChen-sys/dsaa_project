@@ -244,8 +244,8 @@ public class IntelligentScissors extends JFrame {
                     return;
                 }
                 //图像缩放逻辑
-                int maxWidth = 800; // 最大宽度
-                int maxHeight = 600; // 最大高度
+                int maxWidth = 800; //最大宽度
+                int maxHeight = 600; //最大高度
                 int imageWidth = originalImage.getWidth();
                 int imageHeight = originalImage.getHeight();
 
@@ -333,9 +333,10 @@ public class IntelligentScissors extends JFrame {
         repaint();
     }
 
+    //导出切割部分
     private void exportSelection() {
         if (allPaths.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No paths to export");//路径为空
+            JOptionPane.showMessageDialog(this, "No paths to export"); //路径为空
             return;
         }
 
@@ -352,9 +353,17 @@ public class IntelligentScissors extends JFrame {
 
         //路径闭合
         Path2D.Double polygon = new Path2D.Double();
-        polygon.moveTo(mergedPath.get(0).x, mergedPath.get(0).y);
-        for (int i = 1; i < mergedPath.size(); i++) {
-            polygon.lineTo(mergedPath.get(i).x, mergedPath.get(i).y);
+        //转换到原始图像坐标
+        List<Point> originalPoints = new ArrayList<>();
+        for (Point p : mergedPath) {
+            int originalX = (int) (p.x * scaleRatioX);
+            int originalY = (int) (p.y * scaleRatioY);
+            originalPoints.add(new Point(originalX, originalY));
+        }
+
+        polygon.moveTo(originalPoints.get(0).x, originalPoints.get(0).y);
+        for (int i = 1; i < originalPoints.size(); i++) {
+            polygon.lineTo(originalPoints.get(i).x, originalPoints.get(i).y);
         }
         polygon.closePath();
         Area totalArea = new Area(polygon);
