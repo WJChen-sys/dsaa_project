@@ -480,7 +480,7 @@ class ImageProcessor {
             }
         }
 
-        // 处理边缘像素 默认为0填充 尽量保持小梯度 不倾向识别为边缘
+        //处理边缘像素 默认为0填充 尽量保持小梯度 不倾向识别为边缘
 //        for (int x = 0; x < width; x++) {
 //            for (int y = 0; y < height; y++) {
 //                if (x == 0 || x == width - 1 || y == 0 || y == height - 1) {
