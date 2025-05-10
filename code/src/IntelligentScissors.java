@@ -22,10 +22,13 @@ public class IntelligentScissors extends JFrame {
     private double[][] costMatrix; //代价 用于Dijkstra算法
     private Map<Point, Point> parentMap; //每个点的父节点，用于重建路径
     private List<Point> currentPath = new ArrayList<>(); //当前路径
+    private double scaleRatioX; //缩放比例X
+    private double scaleRatioY; //缩放比例Y
     //数据存储 以及算法实现需要的变量
 
     private BufferedImage originalImage; //原始图像
     private BufferedImage displayImage; //显示图像
+    private BufferedImage scaledImage; // 缩放后的图片
     private JPanel imagePanel; //显示图像面板
     private boolean pathCompleted = false; //当前路径完成
     private Color pathColor = Color.GREEN; //路径颜色 默认绿色
@@ -53,8 +56,6 @@ public class IntelligentScissors extends JFrame {
         openButton.addActionListener(e -> openImage()); //图像事件监听
         JButton clearButton = new JButton("Clear");
         clearButton.addActionListener(e -> clearAllPaths()); //清除所有路径监听
-        JButton colorButton = new JButton("Change Color");
-        colorButton.addActionListener(e -> changeColor()); //更改路径颜色监听
         JToggleButton coolingToggleButton = new JToggleButton("Path Cooling: ON");
         coolingToggleButton.addActionListener(e -> {
             isCoolingEnabled = !isCoolingEnabled;
@@ -71,7 +72,6 @@ public class IntelligentScissors extends JFrame {
         //依次在工具栏添加按钮
         toolBar.add(openButton);
         toolBar.add(clearButton);
-        toolBar.add(colorButton);
         toolBar.add(exportButton);
         toolBar.add(coolingToggleButton);
 
@@ -81,27 +81,59 @@ public class IntelligentScissors extends JFrame {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 if (displayImage != null) {
-                    g.drawImage(displayImage, 0, 0, this); //绘制背景图像
+                    g.drawImage(displayImage, 0, 0, this); // 绘制原始图像
 
-                    //绘制已完成的路径
-                    Graphics2D g2d = (Graphics2D) g;
-                    g2d.setColor(pathColor); //路径颜色
-                    g2d.setStroke(new BasicStroke(2)); //线条宽度
+                    // 绘制已完成路径（红色）
+                    Graphics2D g2dAll = (Graphics2D) g.create();
+                    g2dAll.setColor(Color.RED);
+                    g2dAll.setStroke(new BasicStroke(2));
                     for (List<Point> path : allPaths) {
                         for (int i = 0; i < path.size() - 1; i++) {
                             Point p1 = path.get(i);
                             Point p2 = path.get(i + 1);
-                            g2d.drawLine(p1.x, p1.y, p2.x, p2.y); //路径线段
+
+                            // 将缩放后的图片坐标转换为原始图片的坐标
+                            int originalX1 = (int) (p1.x * scaleRatioX);
+                            int originalY1 = (int) (p1.y * scaleRatioY);
+                            int originalX2 = (int) (p2.x * scaleRatioX);
+                            int originalY2 = (int) (p2.y * scaleRatioY);
+
+                            g2dAll.drawLine(originalX1, originalY1, originalX2, originalY2);
                         }
                     }
+                    g2dAll.dispose();
 
-                    //绘制当前路径
+                    // 绘制当前路径（绿色）
                     if (!currentPath.isEmpty()) {
+                        Graphics2D g2dCurrent = (Graphics2D) g.create();
+                        g2dCurrent.setColor(pathColor);
+                        g2dCurrent.setStroke(new BasicStroke(2));
                         for (int i = 0; i < currentPath.size() - 1; i++) {
                             Point p1 = currentPath.get(i);
                             Point p2 = currentPath.get(i + 1);
-                            g2d.drawLine(p1.x, p1.y, p2.x, p2.y); //路径线段
+
+                            // 将缩放后的图片坐标转换为原始图片的坐标
+                            int originalX1 = (int) (p1.x * scaleRatioX);
+                            int originalY1 = (int) (p1.y * scaleRatioY);
+                            int originalX2 = (int) (p2.x * scaleRatioX);
+                            int originalY2 = (int) (p2.y * scaleRatioY);
+
+                            g2dCurrent.drawLine(originalX1, originalY1, originalX2, originalY2);
                         }
+                        g2dCurrent.dispose();
+                    }
+
+                    // 绘制 seed point（蓝色点）
+                    if (seedPoint != null && !pathCompleted) {
+                        Graphics2D g2dSeed = (Graphics2D) g.create();
+                        g2dSeed.setColor(Color.BLUE);
+
+                        // 将缩放后的图片坐标转换为原始图片的坐标
+                        int originalX = (int) (seedPoint.x * scaleRatioX);
+                        int originalY = (int) (seedPoint.y * scaleRatioY);
+
+                        g2dSeed.fillOval(originalX - 4, originalY - 4, 8, 8);
+                        g2dSeed.dispose();
                     }
                 }
             }
@@ -124,15 +156,15 @@ public class IntelligentScissors extends JFrame {
                 //第一次点击or路径已完成
                 if (seedPoint == null || pathCompleted) {
                     Point clickedPoint = e.getPoint();
-                    Point snapPoint = findNearestHighGradientPoint(clickedPoint.x, clickedPoint.y);
-                    //cursor snap
+                    int scaledX = (int) (clickedPoint.x / scaleRatioX);
+                    int scaledY = (int) (clickedPoint.y / scaleRatioY);
+
+                    Point snapPoint = findNearestHighGradientPoint(scaledX, scaledY);
                     seedPoint = snapPoint;
                     parentMap = Dijkstra.calculatePaths(seedPoint.x, seedPoint.y, costMatrix);
-                    //寻路算法 更新父节点
                     currentPath.clear();
                     currentPath.add(new Point(seedPoint.x, seedPoint.y));
-                    //添加seed point
-                    pathCompleted = false;//状态更新
+                    pathCompleted = false;
                 } else {
                     //用当前seed point计算路径
                     parentMap = Dijkstra.calculatePaths(seedPoint.x, seedPoint.y, costMatrix);
@@ -150,7 +182,10 @@ public class IntelligentScissors extends JFrame {
             public void mouseMoved(MouseEvent e) {
                 if (seedPoint != null && parentMap != null && !pathCompleted) {
                     Point currentMouse = e.getPoint();
-                    Point edgePoint = findNearestHighGradientPoint(currentMouse.x, currentMouse.y);
+                    int scaledX = (int) (currentMouse.x / scaleRatioX);
+                    int scaledY = (int) (currentMouse.y / scaleRatioY);
+
+                    Point edgePoint = findNearestHighGradientPoint(scaledX, scaledY);
                     currentPath = reconstructPath(edgePoint);
 
                     //更新path cooling参数
@@ -208,15 +243,40 @@ public class IntelligentScissors extends JFrame {
                     JOptionPane.showMessageDialog(this, "Unsupported image format"); //不支持的格式
                     return;
                 }
+                //图像缩放逻辑
+                int maxWidth = 800; // 最大宽度
+                int maxHeight = 600; // 最大高度
+                int imageWidth = originalImage.getWidth();
+                int imageHeight = originalImage.getHeight();
+
+                //计算缩放比例
+                double ratioX = (double) maxWidth / imageWidth;
+                double ratioY = (double) maxHeight / imageHeight;
+                double scaleRatio = Math.min(ratioX, ratioY);
+
+                //缩放图片
+                scaledImage = new BufferedImage(
+                        (int) (imageWidth * scaleRatio),
+                        (int) (imageHeight * scaleRatio),
+                        BufferedImage.TYPE_INT_RGB
+                );
+                Graphics2D g2d = scaledImage.createGraphics();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.drawImage(originalImage, 0, 0, scaledImage.getWidth(), scaledImage.getHeight(), null);
+                g2d.dispose();
+
+                scaleRatioX = (double) originalImage.getWidth() / scaledImage.getWidth();
+                scaleRatioY = (double) originalImage.getHeight() / scaledImage.getHeight();
+
                 displayImage = new BufferedImage(
                         originalImage.getWidth(),
                         originalImage.getHeight(),
                         BufferedImage.TYPE_INT_RGB
                 );
-                displayImage.getGraphics().drawImage(originalImage, 0, 0, null); //将图像复制到显示缓冲区
+                displayImage.getGraphics().drawImage(originalImage, 0, 0, null);
 
-                //计算梯度和cost矩阵
-                gradients = ImageProcessor.computeGradients(originalImage);
+                //计算梯度和成本矩阵（在缩放后的图片上进行计算）
+                gradients = ImageProcessor.computeGradients(scaledImage);
                 costMatrix = computeCostMatrix(gradients);
 
                 //面板尺寸
@@ -284,15 +344,6 @@ public class IntelligentScissors extends JFrame {
         //path cooling清除
 
         repaint();
-    }
-
-    //路径颜色
-    private void changeColor() {
-        Color newColor = JColorChooser.showDialog(this, "Choose Path Color", pathColor); //颜色选择器
-        if (newColor != null) {
-            pathColor = newColor; //更新路径颜色
-            repaint();
-        }
     }
 
     private void exportSelection() {
